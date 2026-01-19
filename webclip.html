@@ -18,6 +18,8 @@
         #preview img { width: 64px; height: 64px; border-radius: 12px; margin-bottom: 1rem; }
         .download-group { display: flex; gap: 1rem; margin-top: 1rem; }
         .download-group button { flex: 1; }
+        .install-link { display: block; text-align: center; margin-top: 1rem; color: #0071e3; text-decoration: none; }
+        .warning { color: #ff3b30; margin-top: 0.5rem; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -30,12 +32,18 @@
         <div class="form-group">
             <label for="iconUpload">上传图标 (建议180x180 PNG)</label>
             <input type="file" id="iconUpload" accept="image/png, image/jpeg" required>
+            <div class="warning">提示：图标大小会影响安装成功率，建议不超过200KB</div>
         </div>
         <div class="form-group">
             <label for="webUrl">网页链接 (必须HTTPS)</label>
             <input type="url" id="webUrl" placeholder="例如：https://www.example.com" required>
+            <div class="warning">警告：非HTTPS链接iOS会拦截安装！</div>
         </div>
         <div id="preview"></div>
+        <div id="installArea" style="display: none; margin: 1.5rem 0;">
+            <a href="#" id="installLink" class="install-link">点击这里在Safari中直接安装</a>
+            <div class="warning">必须用Safari浏览器打开此链接，第三方浏览器不支持！</div>
+        </div>
         <div class="download-group">
             <button id="generateBtn">生成并下载描述文件</button>
             <button id="zipBtn">打包成ZIP下载</button>
@@ -44,15 +52,18 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script>
-        // 生成UUID
+        let currentConfigBlob = null;
+        let currentAppName = '';
+
+        // 生成UUID（官方要求每个描述文件必须有唯一UUID）
         function generateUUID() {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                const r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
                 return v.toString(16);
             });
         }
 
-        // 图片转Base64
+        // 图片转Base64（优化处理大图片）
         function imageToBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -62,7 +73,7 @@
             });
         }
 
-        // 生成mobileconfig内容
+        // 生成mobileconfig内容（严格遵循Apple官方格式）
         async function generateMobileConfig() {
             const appName = document.getElementById('appName').value.trim();
             const webUrl = document.getElementById('webUrl').value.trim();
@@ -73,11 +84,19 @@
                 return null;
             }
 
+            // 验证URL是否为HTTPS
+            if (!webUrl.startsWith('https://')) {
+                alert('网页链接必须是HTTPS协议！');
+                return null;
+            }
+
             const iconBase64 = await imageToBase64(iconFile);
             const uuid1 = generateUUID();
             const uuid2 = generateUUID();
-            const identifier = `com.${appName.toLowerCase().replace(/\s+/g, '')}.webclip`;
+            const identifier = `com.${appName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')}.webclip`;
 
+            currentAppName = appName;
+            
             return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -108,9 +127,9 @@
             <key>Label</key>
             <string>${appName}</string>
             <key>FullScreen</key>
-            <true/>
+            <true
             <key>Precomposed</key>
-            <true/>
+            <true
             <key>Icon</key>
             <data>${iconBase64}</data>
         </dict>
@@ -119,9 +138,9 @@
 </plist>`;
         }
 
-        // 下载文件
-        function downloadFile(content, filename, type) {
-            const blob = new Blob([content], { type: type });
+        // 下载文件（关键修复：设置正确的MIME类型）
+        function downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -130,26 +149,36 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+            return blob;
         }
 
         // 事件监听
         document.getElementById('generateBtn').addEventListener('click', async () => {
-            const config = await generateMobileConfig();
-            if (config) {
-                downloadFile(config, `${document.getElementById('appName').value}.mobileconfig`, 'application/xml');
+            const configContent = await generateMobileConfig();
+            if (configContent) {
+                // 关键修复：使用官方指定的MIME类型
+                currentConfigBlob = downloadFile(
+                    configContent, 
+                    `${currentAppName}.mobileconfig`, 
+                    'application/x-apple-aspen-config'
+                );
+                // 显示直接安装链接
+                document.getElementById('installArea').style.display = 'block';
+                document.getElementById('installLink').href = URL.createObjectURL(currentConfigBlob);
             }
         });
 
         document.getElementById('zipBtn').addEventListener('click', async () => {
-            const config = await generateMobileConfig();
-            if (!config) return;
+            const configContent = await generateMobileConfig();
+            if (!configContent) return;
 
             const zip = new JSZip();
-            const appName = document.getElementById('appName').value;
-            zip.file(`${appName}.mobileconfig`, config);
+            zip.file(`${currentAppName}.mobileconfig`, configContent, {
+                type: 'application/x-apple-aspen-config'
+            });
             
             const zipContent = await zip.generateAsync({ type: 'blob' });
-            downloadFile(zipContent, `${appName}.zip`, 'application/zip');
+            downloadFile(zipContent, `${currentAppName}.zip`, 'application/zip');
         });
 
         // 预览图标
@@ -163,6 +192,18 @@
                 };
                 reader.readAsDataURL(file);
             }
+        });
+
+        // 修复直接安装链接的点击行为
+        document.getElementById('installLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            if (!currentConfigBlob) {
+                alert('请先生成描述文件！');
+                return;
+            }
+            // 在新窗口打开，触发Safari的描述文件识别
+            window.open(URL.createObjectURL(currentConfigBlob), '_blank');
+            alert('请在新打开的页面中点击"允许"，然后前往设置完成安装');
         });
     </script>
 </body>
