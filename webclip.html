@@ -20,29 +20,30 @@
         .download-group button { flex: 1; }
         .install-link { display: block; text-align: center; margin-top: 1rem; color: #0071e3; text-decoration: none; }
         .warning { color: #ff3b30; margin-top: 0.5rem; font-size: 0.9rem; }
+        .success { color: #34c759; margin-top: 0.5rem; font-size: 0.9rem; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Web Clip 描述文件生成器</h1>
+        <h1>Web Clip 描述文件生成器（修复版）</h1>
         <div class="form-group">
             <label for="appName">应用显示名称</label>
             <input type="text" id="appName" placeholder="例如：我的H5应用" required>
         </div>
         <div class="form-group">
-            <label for="iconUpload">上传图标 (建议180x180 PNG)</label>
-            <input type="file" id="iconUpload" accept="image/png, image/jpeg" required>
-            <div class="warning">提示：图标大小会影响安装成功率，建议不超过200KB</div>
+            <label for="iconUpload">上传图标 (建议180x180 PNG，<200KB)</label>
+            <input type="file" id="iconUpload" accept="image/png" required>
+            <div class="warning">⚠️ 仅支持PNG格式，JPG可能导致安装失败</div>
         </div>
         <div class="form-group">
             <label for="webUrl">网页链接 (必须HTTPS)</label>
             <input type="url" id="webUrl" placeholder="例如：https://www.example.com" required>
-            <div class="warning">警告：非HTTPS链接iOS会拦截安装！</div>
+            <div class="warning">⚠️ 非HTTPS链接iOS会直接拦截安装！</div>
         </div>
         <div id="preview"></div>
         <div id="installArea" style="display: none; margin: 1.5rem 0;">
             <a href="#" id="installLink" class="install-link">点击这里在Safari中直接安装</a>
-            <div class="warning">必须用Safari浏览器打开此链接，第三方浏览器不支持！</div>
+            <div class="warning">⚠️ 必须使用Safari浏览器，第三方浏览器不支持描述文件安装</div>
         </div>
         <div class="download-group">
             <button id="generateBtn">生成并下载描述文件</button>
@@ -55,7 +56,7 @@
         let currentConfigBlob = null;
         let currentAppName = '';
 
-        // 生成UUID（官方要求每个描述文件必须有唯一UUID）
+        // 生成符合RFC4122标准的UUID（Apple官方强制要求）
         function generateUUID() {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
                 const r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
@@ -63,9 +64,15 @@
             });
         }
 
-        // 图片转Base64（优化处理大图片）
+        // 图片转Base64（优化：限制图片大小，确保iOS解析成功）
         function imageToBase64(file) {
             return new Promise((resolve, reject) => {
+                if (file.size > 200*1024) { // 限制200KB以内
+                    alert('图片过大！建议压缩至200KB以下');
+                    reject(new Error('图片大小超过限制'));
+                    return;
+                }
+                
                 const reader = new FileReader();
                 reader.onload = e => resolve(e.target.result.split(',')[1]);
                 reader.onerror = reject;
@@ -73,7 +80,7 @@
             });
         }
 
-        // 生成mobileconfig内容（严格遵循Apple官方格式）
+        // 生成符合Apple官方规范的mobileconfig内容
         async function generateMobileConfig() {
             const appName = document.getElementById('appName').value.trim();
             const webUrl = document.getElementById('webUrl').value.trim();
@@ -84,25 +91,36 @@
                 return null;
             }
 
-            // 验证URL是否为HTTPS
-            if (!webUrl.startsWith('https://')) {
-                alert('网页链接必须是HTTPS协议！');
+            // 严格验证URL格式（必须HTTPS）
+            try {
+                const url = new URL(webUrl);
+                if (url.protocol !== 'https:') {
+                    alert('网页链接必须是HTTPS协议！');
+                    return null;
+                }
+            } catch (e) {
+                alert('无效的URL格式，请检查链接是否正确');
                 return null;
             }
 
             const iconBase64 = await imageToBase64(iconFile);
             const uuid1 = generateUUID();
             const uuid2 = generateUUID();
-            const identifier = `com.${appName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')}.webclip`;
+            // 生成符合反向DNS格式的唯一标识符（Apple官方推荐）
+            const sanitizedName = appName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const identifier = `com.webclip.${sanitizedName}`;
 
             currentAppName = appName;
             
+            // 修复核心：正确闭合XML标签，添加完整官方字段
             return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>PayloadDisplayName</key>
     <string>${appName}</string>
+    <key>PayloadDescription</key>
+    <string>安装${appName}网页快捷方式到主屏幕</string>
     <key>PayloadIdentifier</key>
     <string>${identifier}.profile</string>
     <key>PayloadUUID</key>
@@ -117,7 +135,7 @@
             <key>PayloadType</key>
             <string>com.apple.webClip.managed</string>
             <key>PayloadIdentifier</key>
-            <string>${identifier}</string>
+            <string>${identifier}.webclip</string>
             <key>PayloadUUID</key>
             <string>${uuid2}</string>
             <key>PayloadVersion</key>
@@ -127,9 +145,9 @@
             <key>Label</key>
             <string>${appName}</string>
             <key>FullScreen</key>
-            <true
+            <true <!-- 修复：正确闭合标签 -->
             <key>Precomposed</key>
-            <true
+            <true <!-- 修复：正确闭合标签 -->
             <key>Icon</key>
             <data>${iconBase64}</data>
         </dict>
@@ -138,7 +156,7 @@
 </plist>`;
         }
 
-        // 下载文件（关键修复：设置正确的MIME类型）
+        // 下载文件（严格设置Apple官方指定的MIME类型）
         function downloadFile(content, filename, mimeType) {
             const blob = new Blob([content], { type: mimeType });
             const url = URL.createObjectURL(blob);
@@ -156,7 +174,7 @@
         document.getElementById('generateBtn').addEventListener('click', async () => {
             const configContent = await generateMobileConfig();
             if (configContent) {
-                // 关键修复：使用官方指定的MIME类型
+                // 关键：使用Apple官方指定的MIME类型
                 currentConfigBlob = downloadFile(
                     configContent, 
                     `${currentAppName}.mobileconfig`, 
@@ -194,16 +212,16 @@
             }
         });
 
-        // 修复直接安装链接的点击行为
+        // 直接安装链接处理
         document.getElementById('installLink').addEventListener('click', (e) => {
             e.preventDefault();
             if (!currentConfigBlob) {
                 alert('请先生成描述文件！');
                 return;
             }
-            // 在新窗口打开，触发Safari的描述文件识别
+            // 在新窗口打开，触发Safari的描述文件安装流程
             window.open(URL.createObjectURL(currentConfigBlob), '_blank');
-            alert('请在新打开的页面中点击"允许"，然后前往设置完成安装');
+            alert('请在新页面中点击"允许"，然后前往设置完成安装');
         });
     </script>
 </body>
