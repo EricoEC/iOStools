@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Clip 描述文件生成器</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { max-width: 800px; margin: 2rem auto; padding: 0 1rem; background: #f5f5f5; }
+        .container { background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; margin-bottom: 2rem; color: #333; }
+        .form-group { margin-bottom: 1.5rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: bold; color: #555; }
+        input, button { width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 5px; font-size: 1rem; }
+        button { background: #0071e3; color: white; border: none; cursor: pointer; margin-top: 1rem; }
+        button:hover { background: #0077ed; }
+        #preview { margin-top: 2rem; text-align: center; }
+        #preview img { width: 64px; height: 64px; border-radius: 12px; margin-bottom: 1rem; }
+        .download-group { display: flex; gap: 1rem; margin-top: 1rem; }
+        .download-group button { flex: 1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Web Clip 描述文件生成器</h1>
+        <div class="form-group">
+            <label for="appName">应用显示名称</label>
+            <input type="text" id="appName" placeholder="例如：我的H5应用" required>
+        </div>
+        <div class="form-group">
+            <label for="iconUpload">上传图标 (建议180x180 PNG)</label>
+            <input type="file" id="iconUpload" accept="image/png, image/jpeg" required>
+        </div>
+        <div class="form-group">
+            <label for="webUrl">网页链接 (必须HTTPS)</label>
+            <input type="url" id="webUrl" placeholder="例如：https://www.example.com" required>
+        </div>
+        <div id="preview"></div>
+        <div class="download-group">
+            <button id="generateBtn">生成并下载描述文件</button>
+            <button id="zipBtn">打包成ZIP下载</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script>
+        // 生成UUID
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        // 图片转Base64
+        function imageToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // 生成mobileconfig内容
+        async function generateMobileConfig() {
+            const appName = document.getElementById('appName').value.trim();
+            const webUrl = document.getElementById('webUrl').value.trim();
+            const iconFile = document.getElementById('iconUpload').files[0];
+            
+            if (!appName || !webUrl || !iconFile) {
+                alert('请填写所有必填项！');
+                return null;
+            }
+
+            const iconBase64 = await imageToBase64(iconFile);
+            const uuid1 = generateUUID();
+            const uuid2 = generateUUID();
+            const identifier = `com.${appName.toLowerCase().replace(/\s+/g, '')}.webclip`;
+
+            return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>PayloadDisplayName</key>
+    <string>${appName}</string>
+    <key>PayloadIdentifier</key>
+    <string>${identifier}.profile</string>
+    <key>PayloadUUID</key>
+    <string>${uuid1}</string>
+    <key>PayloadType</key>
+    <string>Configuration</string>
+    <key>PayloadVersion</key>
+    <integer>1</integer>
+    <key>PayloadContent</key>
+    <array>
+        <dict>
+            <key>PayloadType</key>
+            <string>com.apple.webClip.managed</string>
+            <key>PayloadIdentifier</key>
+            <string>${identifier}</string>
+            <key>PayloadUUID</key>
+            <string>${uuid2}</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>URL</key>
+            <string>${webUrl}</string>
+            <key>Label</key>
+            <string>${appName}</string>
+            <key>FullScreen</key>
+            <true/>
+            <key>Precomposed</key>
+            <true/>
+            <key>Icon</key>
+            <data>${iconBase64}</data>
+        </dict>
+    </array>
+</dict>
+</plist>`;
+        }
+
+        // 下载文件
+        function downloadFile(content, filename, type) {
+            const blob = new Blob([content], { type: type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // 事件监听
+        document.getElementById('generateBtn').addEventListener('click', async () => {
+            const config = await generateMobileConfig();
+            if (config) {
+                downloadFile(config, `${document.getElementById('appName').value}.mobileconfig`, 'application/xml');
+            }
+        });
+
+        document.getElementById('zipBtn').addEventListener('click', async () => {
+            const config = await generateMobileConfig();
+            if (!config) return;
+
+            const zip = new JSZip();
+            const appName = document.getElementById('appName').value;
+            zip.file(`${appName}.mobileconfig`, config);
+            
+            const zipContent = await zip.generateAsync({ type: 'blob' });
+            downloadFile(zipContent, `${appName}.zip`, 'application/zip');
+        });
+
+        // 预览图标
+        document.getElementById('iconUpload').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const preview = document.getElementById('preview');
+                    preview.innerHTML = `<img src="${e.target.result}" alt="预览图标">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    </script>
+</body>
+</html>
