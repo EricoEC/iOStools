@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Clip 描述文件生成器</title>
+    <title>Web Clip 生成器</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
         body { max-width: 800px; margin: 2rem auto; padding: 0 1rem; background: #f5f5f5; }
@@ -11,43 +11,52 @@
         h1 { text-align: center; margin-bottom: 2rem; color: #333; }
         .form-group { margin-bottom: 1.5rem; }
         label { display: block; margin-bottom: 0.5rem; font-weight: bold; color: #555; }
-        input, button { width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 5px; font-size: 1rem; }
+        input, button, select { width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 5px; font-size: 1rem; }
         button { background: #0071e3; color: white; border: none; cursor: pointer; margin-top: 1rem; }
         button:hover { background: #0077ed; }
+        #debugInfo { margin: 1rem 0; padding: 1rem; border-radius: 5px; display: none; }
+        .debug-success { background: #e6fffa; color: #34c759; border: 1px solid #34c759; }
+        .debug-error { background: #ffebee; color: #ff3b30; border: 1px solid #ff3b30; }
         #preview { margin-top: 2rem; text-align: center; }
         #preview img { width: 64px; height: 64px; border-radius: 12px; margin-bottom: 1rem; }
         .download-group { display: flex; gap: 1rem; margin-top: 1rem; }
         .download-group button { flex: 1; }
         .install-link { display: block; text-align: center; margin-top: 1rem; color: #0071e3; text-decoration: none; }
         .warning { color: #ff3b30; margin-top: 0.5rem; font-size: 0.9rem; }
-        .success { color: #34c759; margin-top: 0.5rem; font-size: 0.9rem; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Web Clip 描述文件生成器（修复版）</h1>
+        <h1>Web Clip 生成器（Debug 版）</h1>
         <div class="form-group">
             <label for="appName">应用显示名称</label>
             <input type="text" id="appName" placeholder="例如：我的H5应用" required>
         </div>
         <div class="form-group">
-            <label for="iconUpload">上传图标 (建议180x180 PNG，<200KB)</label>
-            <input type="file" id="iconUpload" accept="image/png" required>
-            <div class="warning">⚠️ 仅支持PNG格式，JPG可能导致安装失败</div>
+            <label for="iconMode">图标模式（优先选无图标测试）</label>
+            <select id="iconMode">
+                <option value="noicon">无图标（优先测试，排除图标问题）</option>
+                <option value="icon">上传图标（180x180 PNG <200KB）</option>
+            </select>
+        </div>
+        <div class="form-group" id="iconGroup" style="display: none;">
+            <label for="iconUpload">上传PNG图标</label>
+            <input type="file" id="iconUpload" accept="image/png">
         </div>
         <div class="form-group">
-            <label for="webUrl">网页链接 (必须HTTPS)</label>
-            <input type="url" id="webUrl" placeholder="例如：https://www.example.com" required>
-            <div class="warning">⚠️ 非HTTPS链接iOS会直接拦截安装！</div>
+            <label for="webUrl">网页链接（必须HTTPS）</label>
+            <input type="url" id="webUrl" placeholder="https://www.example.com" required>
         </div>
-        <div id="preview"></div>
+        
+        <!-- Debug 信息展示区 -->
+        <div id="debugInfo"></div>
+
         <div id="installArea" style="display: none; margin: 1.5rem 0;">
-            <a href="#" id="installLink" class="install-link">点击这里在Safari中直接安装</a>
-            <div class="warning">⚠️ 必须使用Safari浏览器，第三方浏览器不支持描述文件安装</div>
+            <a href="#" id="installLink" class="install-link">Safari直接安装</a>
         </div>
         <div class="download-group">
-            <button id="generateBtn">生成并下载描述文件</button>
-            <button id="zipBtn">打包成ZIP下载</button>
+            <button id="generateBtn">生成并校验文件</button>
+            <button id="zipBtn">打包ZIP</button>
         </div>
     </div>
 
@@ -56,23 +65,24 @@
         let currentConfigBlob = null;
         let currentAppName = '';
 
-        // 生成符合RFC4122标准的UUID（Apple官方强制要求）
+        // 切换图标模式显示/隐藏上传框
+        document.getElementById('iconMode').addEventListener('change', (e) => {
+            document.getElementById('iconGroup').style.display = e.target.value === 'icon' ? 'block' : 'none';
+        });
+
+        // 生成标准UUID
         function generateUUID() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                const r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8);
                 return v.toString(16);
             });
         }
 
-        // 图片转Base64（优化：限制图片大小，确保iOS解析成功）
+        // 图片转Base64 + 大小校验
         function imageToBase64(file) {
             return new Promise((resolve, reject) => {
-                if (file.size > 200*1024) { // 限制200KB以内
-                    alert('图片过大！建议压缩至200KB以下');
-                    reject(new Error('图片大小超过限制'));
-                    return;
-                }
-                
+                if (!file) return resolve('');
+                if (file.size > 200*1024) return reject('图片超过200KB限制');
                 const reader = new FileReader();
                 reader.onload = e => resolve(e.target.result.split(',')[1]);
                 reader.onerror = reject;
@@ -80,47 +90,79 @@
             });
         }
 
-        // 生成符合Apple官方规范的mobileconfig内容
-        async function generateMobileConfig() {
+        // 前端 Debug 核心：校验XML语法 + 字段合法性
+        function validateXML(xmlStr) {
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(xmlStr, 'application/xml');
+                const errors = doc.getElementsByTagName('parsererror');
+                if (errors.length > 0) {
+                    const errMsg = errors[0].textContent.trim().substring(0, 200);
+                    return { valid: false, msg: `XML语法错误：${errMsg}` };
+                }
+                // 校验UUID格式
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                const uuidMatches = xmlStr.match(/<string>([0-9a-f-]+)<\/string>/g) || [];
+                for (const m of uuidMatches) {
+                    const uuid = m.replace(/<\/?string>/g, '');
+                    if (uuidRegex.test(uuid)) continue;
+                    return { valid: false, msg: `UUID格式错误：${uuid}` };
+                }
+                return { valid: true, msg: 'XML语法、字段格式均合法' };
+            } catch (e) {
+                return { valid: false, msg: `校验失败：${e.message}` };
+            }
+        }
+
+        // 生成配置文件
+        async function generateAndValidate() {
             const appName = document.getElementById('appName').value.trim();
             const webUrl = document.getElementById('webUrl').value.trim();
-            const iconFile = document.getElementById('iconUpload').files[0];
-            
-            if (!appName || !webUrl || !iconFile) {
-                alert('请填写所有必填项！');
+            const iconMode = document.getElementById('iconMode').value;
+            const iconFile = iconMode === 'icon' ? document.getElementById('iconUpload').files[0] : null;
+            const debugEl = document.getElementById('debugInfo');
+
+            // 清空debug信息
+            debugEl.style.display = 'block';
+            debugEl.className = '';
+
+            // 基础校验
+            if (!appName || !webUrl) {
+                debugEl.className = 'debug-error';
+                debugEl.textContent = '错误：请填写应用名称和HTTPS链接';
+                return null;
+            }
+            if (!webUrl.startsWith('https://')) {
+                debugEl.className = 'debug-error';
+                debugEl.textContent = '错误：链接必须是HTTPS';
                 return null;
             }
 
-            // 严格验证URL格式（必须HTTPS）
+            // 处理图标
+            let iconBase64 = '';
             try {
-                const url = new URL(webUrl);
-                if (url.protocol !== 'https:') {
-                    alert('网页链接必须是HTTPS协议！');
-                    return null;
-                }
+                iconBase64 = await imageToBase64(iconFile);
             } catch (e) {
-                alert('无效的URL格式，请检查链接是否正确');
+                debugEl.className = 'debug-error';
+                debugEl.textContent = `图标错误：${e}`;
                 return null;
             }
 
-            const iconBase64 = await imageToBase64(iconFile);
+            // 生成符合官方规范的配置
             const uuid1 = generateUUID();
             const uuid2 = generateUUID();
-            // 生成符合反向DNS格式的唯一标识符（Apple官方推荐）
-            const sanitizedName = appName.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const identifier = `com.webclip.${sanitizedName}`;
+            const sanitizedName = appName.replace(/[^a-zA-Z0-9]/g, '');
+            const identifier = `com.webclip.${sanitizedName || 'default'}`;
 
-            currentAppName = appName;
-            
-            // 修复核心：正确闭合XML标签，添加完整官方字段
-            return `<?xml version="1.0" encoding="UTF-8"?>
+            // 关键：标签完全闭合，去掉易出错的Icon默认值
+            const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>PayloadDisplayName</key>
     <string>${appName}</string>
     <key>PayloadDescription</key>
-    <string>安装${appName}网页快捷方式到主屏幕</string>
+    <string>Web Clip快捷方式</string>
     <key>PayloadIdentifier</key>
     <string>${identifier}.profile</string>
     <key>PayloadUUID</key>
@@ -145,83 +187,69 @@
             <key>Label</key>
             <string>${appName}</string>
             <key>FullScreen</key>
-            <true <!-- 修复：正确闭合标签 -->
+            <true/>
             <key>Precomposed</key>
-            <true <!-- 修复：正确闭合标签 -->
-            <key>Icon</key>
-            <data>${iconBase64}</data>
+            <true/>
+            ${iconBase64 ? `<key>Icon</key><data>${iconBase64}</data>` : ''}
         </dict>
     </array>
 </dict>
 </plist>`;
+
+            // 前端Debug校验
+            const validateResult = validateXML(xmlContent);
+            if (!validateResult.valid) {
+                debugEl.className = 'debug-error';
+                debugEl.textContent = validateResult.msg;
+                return null;
+            }
+
+            // 校验通过
+            debugEl.className = 'debug-success';
+            debugEl.textContent = validateResult.msg;
+            currentAppName = appName;
+            return xmlContent;
         }
 
-        // 下载文件（严格设置Apple官方指定的MIME类型）
+        // 下载文件
         function downloadFile(content, filename, mimeType) {
             const blob = new Blob([content], { type: mimeType });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = filename;
-            document.body.appendChild(a);
             a.click();
-            document.body.removeChild(a);
             URL.revokeObjectURL(url);
             return blob;
         }
 
         // 事件监听
         document.getElementById('generateBtn').addEventListener('click', async () => {
-            const configContent = await generateMobileConfig();
-            if (configContent) {
-                // 关键：使用Apple官方指定的MIME类型
-                currentConfigBlob = downloadFile(
-                    configContent, 
-                    `${currentAppName}.mobileconfig`, 
-                    'application/x-apple-aspen-config'
-                );
-                // 显示直接安装链接
-                document.getElementById('installArea').style.display = 'block';
-                document.getElementById('installLink').href = URL.createObjectURL(currentConfigBlob);
-            }
+            const xmlContent = await generateAndValidate();
+            if (!xmlContent) return;
+            currentConfigBlob = downloadFile(
+                xmlContent,
+                `${currentAppName}.mobileconfig`,
+                'application/x-apple-aspen-config'
+            );
+            document.getElementById('installArea').style.display = 'block';
+            document.getElementById('installLink').href = URL.createObjectURL(currentConfigBlob);
         });
 
         document.getElementById('zipBtn').addEventListener('click', async () => {
-            const configContent = await generateMobileConfig();
-            if (!configContent) return;
-
+            const xmlContent = await generateAndValidate();
+            if (!xmlContent) return;
             const zip = new JSZip();
-            zip.file(`${currentAppName}.mobileconfig`, configContent, {
-                type: 'application/x-apple-aspen-config'
-            });
-            
-            const zipContent = await zip.generateAsync({ type: 'blob' });
-            downloadFile(zipContent, `${currentAppName}.zip`, 'application/zip');
+            zip.file(`${currentAppName}.mobileconfig`, xmlContent, { type: 'application/x-apple-aspen-config' });
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            downloadFile(zipBlob, `${currentAppName}.zip`, 'application/zip');
         });
 
-        // 预览图标
-        document.getElementById('iconUpload').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const preview = document.getElementById('preview');
-                    preview.innerHTML = `<img src="${e.target.result}" alt="预览图标">`;
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-
-        // 直接安装链接处理
         document.getElementById('installLink').addEventListener('click', (e) => {
             e.preventDefault();
-            if (!currentConfigBlob) {
-                alert('请先生成描述文件！');
-                return;
-            }
-            // 在新窗口打开，触发Safari的描述文件安装流程
+            if (!currentConfigBlob) return;
             window.open(URL.createObjectURL(currentConfigBlob), '_blank');
-            alert('请在新页面中点击"允许"，然后前往设置完成安装');
+            alert('请在Safari新窗口点击允许 → 前往设置安装');
         });
     </script>
 </body>
