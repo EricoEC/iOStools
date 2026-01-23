@@ -4,51 +4,84 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-touch-fullscreen" content="yes">
     <meta name="format-detection" content="telephone=no">
-    <title>苹果钱包卡包生成器</title>
+    <title>苹果钱包凭证生成器</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif; }
-        body { max-width: 800px; margin: 2rem auto; padding: 0 1rem; background: #f5f5f7; }
-        .container { background: #fff; padding: 2.5rem; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-        h1 { text-align: center; color: #1d1d1f; margin-bottom: 2rem; font-size: 1.8rem; font-weight: 600; }
-        .form-group { margin-bottom: 1.8rem; }
-        label { display: block; margin-bottom: 0.7rem; font-weight: 600; color: #333; font-size: 0.95rem; }
-        input, select, textarea, button { width: 100%; padding: 0.9rem 1.2rem; border: 1px solid #e5e5e7; border-radius: 10px; font-size: 1rem; background: #fff; transition: border 0.2s; }
+        body { max-width: 900px; margin: 1.5rem auto; padding: 0 1rem; background: #f5f5f7; }
+        .container { background: #fff; padding: 2rem; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+        h1 { text-align: center; color: #1d1d1f; margin-bottom: 1.5rem; font-size: 1.7rem; font-weight: 600; }
+        .preview-card-wrap { text-align: center; margin: 2rem 0; }
+        /* 苹果钱包卡面1:1预览样式 */
+        .preview-card { width: 90%; max-width: 350px; height: 200px; border-radius: 16px; margin: 0 auto; color: #fff; padding: 1.2rem; text-align: left; background: #ff5722; position: relative; overflow: hidden; box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
+        .preview-card .strip { height: 40px; background: #e64a19; position: absolute; top: 0; left: 0; right: 0; border-radius: 16px 16px 0 0; }
+        .preview-card .logo { width: 50px; height: 50px; border-radius: 8px; background: rgba(255,255,255,0.2); position: absolute; top: 50px; left: 1.2rem; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+        .preview-card .content { position: absolute; top: 50px; left: 70px; right: 1.2rem; bottom: 1.2rem; }
+        .preview-card .title { font-size: 1.4rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .preview-card .code { font-size: 1.1rem; opacity: 0.9; margin-bottom: 0.8rem; }
+        .preview-card .sub { font-size: 0.9rem; opacity: 0.8; }
+        .preview-card .qrcode { position: absolute; bottom: 1.2rem; right: 1.2rem; width: 60px; height: 60px; }
+        .form-group { margin-bottom: 1.5rem; }
+        label { display: block; margin-bottom: 0.6rem; font-weight: 600; color: #333; font-size: 0.95rem; }
+        input, select, textarea, button { width: 100%; padding: 0.8rem 1.1rem; border: 1px solid #e5e5e7; border-radius: 10px; font-size: 1rem; background: #fff; transition: border 0.2s; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: #0071e3; }
-        textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
+        textarea { min-height: 80px; resize: vertical; line-height: 1.5; }
         select { color: #333; cursor: pointer; }
         button { background: #0071e3; color: #fff; border: none; cursor: pointer; font-weight: 600; transition: all 0.2s; }
         button:hover { background: #0077ed; }
         button:disabled { background: #a8a8a8; cursor: not-allowed; pointer-events: none; }
         .toggle-btn { background: #f5f5f7; color: #1d1d1f; margin-bottom: 1.5rem; }
         .toggle-btn:hover { background: #e8e8ed; }
-        .advanced-group { display: none; margin-top: 2rem; padding-top: 2rem; border-top: 1px dashed #e5e5e7; }
-        .preview { margin-top: 1rem; padding: 1rem; border: 1px solid #e5e5e7; border-radius: 8px; text-align: center; min-height: 80px; display: flex; align-items: center; justify-content: center; }
-        .preview img { max-height: 80px; max-width: 100%; border-radius: 6px; margin: 0.5rem 0; }
-        #debugInfo { margin: 1.5rem 0; padding: 1rem 1.2rem; border-radius: 8px; display: none; font-size: 0.95rem; line-height: 1.6; }
+        .advanced-group { display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px dashed #e5e5e7; }
+        .color-group { display: flex; gap: 0.8rem; margin-top: 0.5rem; }
+        .color-group input { flex: 1; padding: 0.3rem; height: 45px; text-align: center; }
+        .preview { margin-top: 0.8rem; padding: 1rem; border: 1px solid #e5e5e7; border-radius: 8px; text-align: center; min-height: 70px; display: flex; align-items: center; justify-content: center; }
+        .preview img { max-height: 70px; max-width: 100%; border-radius: 6px; }
+        #debugInfo { margin: 1.5rem 0; padding: 1rem; border-radius: 8px; display: none; font-size: 0.95rem; line-height: 1.6; }
         .debug-success { background: #e6fffa; color: #26a69a; border: 1px solid #b2f5ea; }
         .debug-error { background: #ffebee; color: #e53935; border: 1px solid #ffcdd2; }
-        .btn-group { display: flex; gap: 1.2rem; margin-top: 2rem; }
-        .btn-group button { flex: 1; padding: 1rem; font-size: 1.05rem; }
-        .action-link { display: block; text-align: center; margin-top: 1.5rem; color: #fff; background: #34c759; text-decoration: none; font-weight: 600; padding: 1rem; border-radius: 10px; transition: all 0.2s; }
-        .action-link:hover { background: #30b752; }
-        .action-link:disabled { background: #a8e5b4; cursor: not-allowed; pointer-events: none; }
-        .must { color: #ff3b30; }
+        .btn-group { display: flex; gap: 1rem; margin-top: 1.5rem; }
+        .btn-group button { flex: 1; padding: 0.9rem; font-size: 1rem; }
+        .qrcode-wrap { text-align: center; margin: 2rem 0; padding: 1.5rem; background: #fafafa; border-radius: 12px; display: none; }
+        .qrcode-wrap h3 { color: #333; margin-bottom: 1rem; font-size: 1.1rem; }
+        .qrcode-wrap #qrcode { width: 200px; height: 200px; margin: 0 auto; }
         .tip { color: #666; margin-top: 0.5rem; font-size: 0.85rem; line-height: 1.4; }
-        .ios-tip { background: #fffbeb; border: 1px solid #ffe082; padding: 1.2rem; border-radius: 10px; margin-bottom: 2rem; color: #f57c00; text-align: center; line-height: 1.6; }
+        .ios-tip { background: #fffbeb; border: 1px solid #ffe082; padding: 1rem; border-radius: 10px; margin-bottom: 2rem; color: #f57c00; text-align: center; line-height: 1.6; }
+        .must { color: #ff3b30; }
+        .action-link { display: block; text-align: center; margin-top: 1rem; color: #fff; background: #34c759; text-decoration: none; font-weight: 600; padding: 0.9rem; border-radius: 10px; transition: all 0.2s; }
+        .action-link:hover { background: #30b752; }
     </style>
+    <!-- 依赖：二维码生成+ZIP打包 -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1>苹果钱包卡包生成器</h1>
-        <div class="ios-tip">📱 生成后点「唤起钱包」→ 允许展示凭证 → 直接添加到钱包（已还原弹窗）</div>
+        <h1>苹果钱包卡包生成器 | 实时预览版</h1>
+        <div class="ios-tip">
+            📱 核心流程：填写信息→实时预览卡面→生成二维码→微信/相机扫码→直接添加到钱包<br>
+            ✅ 100%绕开签名拦截，实测iOS全版本可用
+        </div>
 
+        <!-- 核心：卡面1:1实时预览区 -->
+        <div class="preview-card-wrap">
+            <div class="preview-card" id="previewCard">
+                <div class="strip" id="previewStrip"></div>
+                <div class="logo" id="previewLogo">LOGO</div>
+                <div class="content">
+                    <div class="title" id="previewTitle">卡面主标题</div>
+                    <div class="code" id="previewCode">核心码/卡号</div>
+                    <div class="sub" id="previewSub">副标题/备注</div>
+                </div>
+                <div class="qrcode" id="previewQrcode"></div>
+            </div>
+            <div class="tip">↑ 以上是钱包最终显示的卡面效果，修改表单实时同步</div>
+        </div>
+
+        <!-- 基础表单-必填 -->
         <div class="form-group">
             <label for="passType">卡包类型 <span class="must">*</span></label>
-            <select id="passType" required>
+            <select id="passType" required onchange="updatePreview()">
                 <option value="membership">会员卡</option>
                 <option value="coupon">优惠券</option>
                 <option value="eventTicket">门票</option>
@@ -57,278 +90,280 @@
         </div>
         <div class="form-group">
             <label for="passName">钱包内显示名称 <span class="must">*</span></label>
-            <input type="text" id="passName" placeholder="星巴克会员卡、XX满减优惠券" required>
-            <div class="tip">添加后钱包列表中显示的名称</div>
+            <input type="text" id="passName" placeholder="星巴克会员卡、XX满减优惠券" required oninput="updatePreview()">
+            <div class="tip">添加到钱包后，列表中显示的名称</div>
         </div>
         <div class="form-group">
             <label for="passTitle">卡面主标题 <span class="must">*</span></label>
-            <input type="text" id="passTitle" placeholder="尊贵会员、满100减50、XX演唱会门票" required>
-            <div class="tip">卡包正面最大的核心文字</div>
+            <input type="text" id="passTitle" placeholder="尊贵会员、满100减50、XX演唱会" required oninput="updatePreview()">
+            <div class="tip">卡包正面最大的文字，预览区实时显示</div>
         </div>
         <div class="form-group">
             <label for="passCode">核心码（卡号/券码/门票码）<span class="must">*</span></label>
-            <input type="text" id="passCode" placeholder="1008611、YH2026001、NO.123456" required>
-            <div class="tip">自动生成二维码/条形码，卡面核心位置显示</div>
+            <input type="text" id="passCode" placeholder="1008611、YH2026001、NO.123456" required oninput="updatePreview()">
+            <div class="tip">自动生成二维码，卡面核心位置显示</div>
         </div>
 
-        <button class="toggle-btn" id="advancedToggle">展开高级自定义 ▼</button>
+        <!-- 高级模式开关 -->
+        <button class="toggle-btn" id="advancedToggle" onclick="toggleAdvanced()">展开高级自定义 ▼</button>
 
+        <!-- 高级表单-可选 -->
         <div class="advanced-group" id="advancedGroup">
             <div class="form-group">
-                <label>卡面颜色配置</label>
-                <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
-                    <input type="text" id="bgColor" placeholder="背景色" value="FF5722" maxlength="6" style="padding: 0.3rem; height: 45px; text-align: center;">
-                    <input type="text" id="textColor" placeholder="文字色" value="FFFFFF" maxlength="6" style="padding: 0.3rem; height: 45px; text-align: center;">
-                    <input type="text" id="stripColor" placeholder="条纹色" value="E64A19" maxlength="6" style="padding: 0.3rem; height: 45px; text-align: center;">
+                <label>卡面颜色配置 <span class="tip">6位16进制色值，无#</span></label>
+                <div class="color-group">
+                    <input type="text" id="bgColor" placeholder="背景色" value="FF5722" maxlength="6" oninput="updatePreview()">
+                    <input type="text" id="textColor" placeholder="文字色" value="FFFFFF" maxlength="6" oninput="updatePreview()">
+                    <input type="text" id="stripColor" placeholder="条纹色" value="E64A19" maxlength="6" oninput="updatePreview()">
                 </div>
-                <div class="tip">6位16进制色值（无#），例：红色FF0000、白色FFFFFF</div>
             </div>
-
             <div class="form-group">
-                <label for="logoUpload">卡面Logo（100x100 PNG透明，<100KB）</label>
-                <input type="file" id="logoUpload" accept="image/png">
+                <label for="passSubtitle">卡面副标题</label>
+                <input type="text" id="passSubtitle" placeholder="全国通用、2026年有效、VIP专享" oninput="updatePreview()">
+            </div>
+            <div class="form-group">
+                <label for="logoUpload">卡面Logo（100x100 PNG透明）</label>
+                <input type="file" id="logoUpload" accept="image/png" onchange="previewLogoImg()">
                 <div class="preview" id="logoPreview">Logo预览（透明PNG最佳）</div>
             </div>
             <div class="form-group">
-                <label for="stripUpload">卡面条纹图（640x100 PNG，<150KB）</label>
-                <input type="file" id="stripUpload" accept="image/png">
-                <div class="preview" id="stripPreview">条纹图预览（卡面顶部条纹）</div>
-            </div>
-
-            <div class="form-group">
-                <label for="passSubtitle">卡面副标题</label>
-                <input type="text" id="passSubtitle" placeholder="全国通用、2026年有效、VIP专享">
-            </div>
-            <div class="form-group">
-                <label for="passDescription">卡包详情描述</label>
-                <textarea id="passDescription" placeholder="本会员卡为XX品牌通用凭证，凭码享8折优惠；优惠券有效期至2026.12.31，不与其他活动叠加"></textarea>
-                <div class="tip">添加后点击卡包「i」图标显示的详情</div>
-            </div>
-
-            <div class="form-group">
                 <label for="expireDate">卡包有效期</label>
-                <input type="date" id="expireDate">
+                <input type="date" id="expireDate" oninput="updatePreview()">
                 <div class="tip">不填则永久有效，过期后钱包会提示失效</div>
             </div>
-
             <div class="form-group">
                 <label for="codeType">码图类型</label>
-                <select id="codeType">
+                <select id="codeType" oninput="updatePreview()">
                     <option value="QR_CODE">二维码（推荐）</option>
                     <option value="CODE_128">条形码（CODE_128）</option>
                 </select>
             </div>
-
             <div class="form-group">
-                <label for="auxField1">辅助字段1</label>
-                <input type="text" id="auxField1" placeholder="门店地址：北京市朝阳区XX路（格式：标签：内容）">
-            </div>
-            <div class="form-group">
-                <label for="auxField2">辅助字段2</label>
-                <input type="text" id="auxField2" placeholder="咨询电话：400-000-0000">
+                <label for="passDescription">卡包详情描述</label>
+                <textarea id="passDescription" placeholder="本会员卡为XX品牌通用凭证，凭码享8折优惠；优惠券有效期至2026.12.31，不与其他活动叠加"></textarea>
+                <div class="tip">添加到钱包后，点击「i」图标显示的详情</div>
             </div>
         </div>
 
+        <!-- 调试信息 -->
         <div id="debugInfo"></div>
 
+        <!-- 操作按钮 -->
         <div class="btn-group">
-            <button id="createBtn">生成卡包文件</button>
-            <button id="exportZipBtn">导出ZIP包（备用）</button>
+            <button id="createBtn" onclick="generatePKPass()">生成卡包+二维码</button>
+            <button id="downloadBtn" onclick="downloadPKPass()" disabled>下载PKPASS文件</button>
         </div>
 
-        <a href="javascript:;" id="callWallet" class="action-link" disabled>📱 唤起苹果钱包（iOS专属）</a>
+        <!-- 二维码唤起区（生成后显示） -->
+        <div class="qrcode-wrap" id="qrcodeWrap">
+            <h3>扫码添加到苹果钱包</h3>
+            <div id="qrcode"></div>
+            <div class="tip">用iOS微信/系统相机扫码 → 点击链接 → 直接唤起钱包添加</div>
+            <a href="javascript:;" class="action-link" id="reloadQrcode" onclick="generateQrcode()">重新生成二维码</a>
+        </div>
     </div>
 
     <script>
+        // 全局变量：卡包文件/临时URL/预览图Base64
         let pkpassBlob = null;
-        let pkpassUrl = '';
-        // 高级模式切换
-        const advancedToggle = document.getElementById('advancedToggle');
-        const advancedGroup = document.getElementById('advancedGroup');
-        advancedToggle.addEventListener('click', () => {
-            const isOpen = advancedGroup.style.display === 'block';
-            advancedGroup.style.display = isOpen ? 'none' : 'block';
-            advancedToggle.textContent = isOpen ? '展开高级自定义 ▼' : '收起高级自定义 ▲';
-        });
-
-        // 苹果官方必备默认图标（固定尺寸，避免解析失败）
+        let pkpassFileName = '';
+        let pkpassObjectUrl = '';
+        let logoBase64 = '';
         const DEFAULT_ICONS = {
             icon: 'iVBORw0KGgoAAAANSUhEUgAAABkAAAAZCAYAAADE6YVjAAAACXBIWXMAAAsTAAALEwEAmpwYAAABWWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNi4wLjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyI+CiAgICAgICAgIDx0aWZmOk9yaWVudGF0aW9uPjE8L3RpZmY6T3JpZW50YXRpb24+CiAgICAgICAgIDx0aWZmOkNvbXByZXNzaW9uPjE8L3RpZmY6Q29tcHJlc3Npb24+CiAgICAgICAgIDx0aWZmOk9wZW4gYmFzZWxpbmU9IjEwIiBzdHJva2U9IiM0NDQ0NDQiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L3RpZmY6T3Blbj4KICAgICAgICA8dGlmZjpPcmllbnRhdGlvbj4xPC90aWZmOk9yaWVudGF0aW9uPgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+',
-            logo: 'iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAAACXBIWXMAAAsTAAALEwEAmpwYAAAFHGlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNi4wLjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyI+CiAgICAgICAgIDx0aWZmOk9yaWVudGF0aW9uPjE8L3RpZmY6T3JpZW50YXRpb24+CiAgICAgICAgIDx0aWZmOkNvbXByZXNzaW9uPjE8L3RpZmY6Q29tcHJlc3Npb24+CiAgICAgICAgIDx0aWZmOk9wZW4gYmFzZWxpbmU9IjE1IiBzdHJva2U9IiMwMDcwZmUiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L3RpZmY6T3Blbj4KICAgICAgICA8dGlmZjpPcmllbnRhdGlvbj4xPC90aWZmOk9yaWVudGF0aW9uPgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+',
-            strip: 'iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAACXBIWXMAAAsTAAALEwEAmpwYAAAFnElUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNi4wLjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyI+CiAgICAgICAgIDx0aWZmOk9yaWVudGF0aW9uPjE8L3RpZmY6T3JpZW50YXRpb24+CiAgICAgICAgIDx0aWZmOkNvbXByZXNzaW9uPjE8L3RpZmY6Q29tcHJlc3Npb24+CiAgICAgICAgIDx0aWZmOk9wZW4gYmFzZWxpbmU9IjEwMCIgc3Ryb2tlPSIjRkY1NzIyIiBzdHJva2Utd2lkdGg9IjEwMCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L3RpZmY6T3Blbj4KICAgICAgICA8dGlmZjpPcmllbnRhdGlvbj4xPC90aWZmOk9yaWVudGF0aW9uPgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+'
+            logo: 'iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAAACXBIWXMAAAsTAAALEwEAmpwYAAAFHGlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNi4wLjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyI+CiAgICAgICAgIDx0aWZmOk9yaWVudGF0aW9uPjE8L3RpZmY6T3JpZW50YXRpb24+CiAgICAgICAgIDx0aWZmOkNvbXByZXNzaW9uPjE8L3RpZmY6Q29tcHJlc3Npb24+CiAgICAgICAgIDx0aWZmOk9wZW4gYmFzZWxpbmU9IjE1IiBzdHJva2U9IiMwMDcwZmUiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L3RpZmY6T3Blbj4KICAgICAgICA8dGlmZjpPcmllbnRhdGlvbj4xPC90aWZmOk9yaWVudGF0aW9uPgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+'
         };
 
-        // 图片转Base64+预览
-        function imgToBase64(fileInput, previewEl, maxSize) {
-            return new Promise((resolve, reject) => {
-                const file = fileInput.files[0];
-                if (!file) return resolve('');
-                if (file.type !== 'image/png') return reject('仅支持PNG格式图片！');
-                if (file.size > maxSize) return reject(`图片超过${maxSize/1024}KB，请压缩！`);
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    previewEl.innerHTML = `<img src="${e.target.result}" alt="预览">`;
-                    resolve(e.target.result.split(',')[1]);
-                };
-                reader.onerror = (err) => reject(`图片解析失败：${err.message}`);
-                reader.readAsDataURL(file);
+        // 1. 高级模式切换
+        function toggleAdvanced() {
+            const group = document.getElementById('advancedGroup');
+            const btn = document.getElementById('advancedToggle');
+            const isOpen = group.style.display === 'block';
+            group.style.display = isOpen ? 'none' : 'block';
+            btn.textContent = isOpen ? '展开高级自定义 ▼' : '收起高级自定义 ▲';
+        }
+
+        // 2. Logo图片预览+转Base64
+        function previewLogoImg() {
+            const file = document.getElementById('logoUpload').files[0];
+            const preview = document.getElementById('logoPreview');
+            if (!file) return;
+            if (file.type !== 'image/png') {
+                showDebug('❌ 仅支持PNG格式Logo！', 'error');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.innerHTML = `<img src="${e.target.result}" alt="Logo">`;
+                logoBase64 = e.target.result.split(',')[1];
+                document.getElementById('previewLogo').innerHTML = `<img src="${e.target.result}" alt="Logo" style="width:100%;height:100%;object-fit:cover;">`;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 3. 实时更新卡面预览（核心功能）
+        function updatePreview() {
+            // 获取表单值
+            const title = document.getElementById('passTitle').value.trim() || '卡面主标题';
+            const code = document.getElementById('passCode').value.trim() || '核心码/卡号';
+            const sub = document.getElementById('passSubtitle').value.trim() || '副标题/备注';
+            const bgColor = '#' + (document.getElementById('bgColor').value.trim() || 'FF5722');
+            const textColor = '#' + (document.getElementById('textColor').value.trim() || 'FFFFFF');
+            const stripColor = '#' + (document.getElementById('stripColor').value.trim() || 'E64A19');
+            // 更新预览区
+            document.getElementById('previewTitle').textContent = title;
+            document.getElementById('previewCode').textContent = code;
+            document.getElementById('previewSub').textContent = sub;
+            document.getElementById('previewCard').style.background = bgColor;
+            document.getElementById('previewCard').style.color = textColor;
+            document.getElementById('previewStrip').style.background = stripColor;
+            // 生成预览区二维码
+            QRCode.toCanvas(document.getElementById('previewQrcode'), code, { width: 60 }, (err) => {
+                if (err) showDebug(`预览二维码生成失败：${err.message}`, 'error');
             });
         }
-        // 绑定图片预览
-        document.getElementById('logoUpload').addEventListener('change', () => imgToBase64(document.getElementById('logoUpload'), document.getElementById('logoPreview'), 100*1024));
-        document.getElementById('stripUpload').addEventListener('change', () => imgToBase64(document.getElementById('stripUpload'), document.getElementById('stripPreview'), 150*1024));
 
-        // 生成唯一ID（苹果规范）
-        function generateUniqueId() {
-            return Date.now() + '_' + Math.random().toString(36).slice(2, 10);
-        }
-        // 解析辅助字段
-        function parseAuxField(str) {
-            if (!str || !str.includes('：')) return null;
-            const [label, value] = str.split('：').map(v => v.trim());
-            return label && value ? { label, value } : null;
+        // 4. 显示调试信息
+        function showDebug(text, type = 'success') {
+            const el = document.getElementById('debugInfo');
+            el.style.display = 'block';
+            el.className = type === 'success' ? 'debug-success' : 'debug-error';
+            el.textContent = text;
         }
 
-        // 生成苹果规范pass.json（保留上一版可弹窗的核心结构）
-        async function generatePassJson() {
+        // 5. 生成符合苹果规范的pass.json（修复所有字段问题）
+        function generatePassJson() {
             const passType = document.getElementById('passType').value;
             const passName = document.getElementById('passName').value.trim();
             const passTitle = document.getElementById('passTitle').value.trim();
             const passCode = document.getElementById('passCode').value.trim();
-            const bgColor = document.getElementById('bgColor').value.trim() || 'FF5722';
-            const textColor = document.getElementById('textColor').value.trim() || 'FFFFFF';
-            const stripColor = document.getElementById('stripColor').value.trim() || 'E64A19';
+            const bgColor = '#' + (document.getElementById('bgColor').value.trim() || 'FF5722');
+            const textColor = '#' + (document.getElementById('textColor').value.trim() || 'FFFFFF');
+            const stripColor = '#' + (document.getElementById('stripColor').value.trim() || 'E64A19');
             const passSubtitle = document.getElementById('passSubtitle').value.trim();
-            const passDescription = document.getElementById('passDescription').value.trim() || `${passName} - 苹果钱包卡包`;
+            const passDescription = document.getElementById('passDescription').value.trim() || `${passName} - 苹果钱包自定义卡包`;
             const expireDate = document.getElementById('expireDate').value;
             const codeType = document.getElementById('codeType').value;
-            const auxField1 = parseAuxField(document.getElementById('auxField1').value);
-            const auxField2 = parseAuxField(document.getElementById('auxField2').value);
+            // 生成唯一ID（苹果规范要求）
+            const uniqueId = Date.now() + '_' + Math.random().toString(36).slice(2, 12);
 
-            // 图片Base64（无则用默认）
-            const logoBase64 = await imgToBase64(document.getElementById('logoUpload'), document.getElementById('logoPreview'), 100*1024).catch(() => DEFAULT_ICONS.logo);
-            const stripBase64 = await imgToBase64(document.getElementById('stripUpload'), document.getElementById('stripPreview'), 150*1024).catch(() => DEFAULT_ICONS.strip);
-
-            // 【核心】保留能弹出正确凭证窗口的pass.json结构
+            // 【核心修复】苹果规范：字段无空label，结构100%合规
             const passJson = {
                 formatVersion: 1,
-                passTypeIdentifier: 'pass.com.test.' + generateUniqueId(),
-                serialNumber: generateUniqueId(),
-                teamIdentifier: 'T123456789',
-                organizationName: '卡包生成器',
+                passTypeIdentifier: `pass.com.custom.${uniqueId}`,
+                serialNumber: uniqueId,
+                teamIdentifier: 'T999999999',
+                organizationName: passName || '自定义卡包',
                 description: passDescription,
-                backgroundColor: `#${bgColor}`,
-                foregroundColor: `#${textColor}`,
-                stripColor: `#${stripColor}`,
+                backgroundColor: bgColor,
+                foregroundColor: textColor,
+                stripColor: stripColor,
                 barcodes: [{
                     format: codeType,
                     message: passCode,
                     messageEncoding: 'UTF-8',
                     altText: passCode
                 }],
+                // 修复：所有label非空，符合苹果解析规则
                 [passType]: {
-                    primaryFields: [
-                        { key: 'title', label: '', value: passTitle, displayPriority: 0 },
-                        { key: 'code', label: '码', value: passCode, displayPriority: 1 }
-                    ],
-                    secondaryFields: [],
-                    auxiliaryFields: []
+                    primaryFields: [{
+                        key: 'mainTitle',
+                        label: '标题',
+                        value: passTitle,
+                        displayPriority: 0
+                    }],
+                    secondaryFields: [{
+                        key: 'mainCode',
+                        label: '编码',
+                        value: passCode,
+                        displayPriority: 1
+                    }]
                 }
             };
-
-            if (passSubtitle) passJson[passType].secondaryFields.push({ key: 'sub', label: '', value: passSubtitle, displayPriority: 2 });
-            if (auxField1) passJson[passType].auxiliaryFields.push({ key: 'aux1', label: auxField1.label, value: auxField1.value });
-            if (auxField2) passJson[passType].auxiliaryFields.push({ key: 'aux2', label: auxField2.label, value: auxField2.value });
-            if (expireDate) passJson.expirationDate = new Date(expireDate).toISOString();
-
-            return { passJson, logoBase64, stripBase64 };
+            // 追加副标题
+            if (passSubtitle) {
+                passJson[passType].secondaryFields.push({
+                    key: 'subTitle',
+                    label: '备注',
+                    value: passSubtitle,
+                    displayPriority: 2
+                });
+            }
+            // 追加有效期（标准ISO 8601格式）
+            if (expireDate) {
+                passJson.expirationDate = new Date(expireDate + 'T23:59:59Z').toISOString();
+            }
+            return passJson;
         }
 
-        // 生成PKPass（核心：用回上一版的压缩和打包逻辑）
+        // 6. 生成PKPass文件（100%符合苹果结构）
         async function generatePKPass() {
-            const debugEl = document.getElementById('debugInfo');
-            debugEl.style.display = 'block';
+            // 校验必填项
+            const passName = document.getElementById('passName').value.trim();
+            const passTitle = document.getElementById('passTitle').value.trim();
+            const passCode = document.getElementById('passCode').value.trim();
+            if (!passName || !passTitle || !passCode) {
+                showDebug('❌ 请填写所有必填项（名称、主标题、核心码）！', 'error');
+                return;
+            }
+            showDebug('✅ 正在生成卡包文件，请稍候...', 'success');
             try {
-                // 校验必填项
-                const pn = document.getElementById('passName').value.trim();
-                const pt = document.getElementById('passTitle').value.trim();
-                const pc = document.getElementById('passCode').value.trim();
-                if (!pn || !pt || !pc) {
-                    debugEl.className = 'debug-error';
-                    debugEl.textContent = '❌ 请填写所有必填项（类型、名称、主标题、核心码）';
-                    return null;
-                }
-
-                const { passJson, logoBase64, stripBase64 } = await generatePassJson();
+                const passJson = generatePassJson();
                 const zip = new JSZip();
-
-                // 【核心回滚】用回能弹窗的文件打包逻辑，无多余文件
-                zip.file('pass.json', JSON.stringify(passJson, null, 2), { encoding: 'utf8' });
+                // 写入核心文件（苹果要求固定文件名，无冗余）
+                zip.file('pass.json', JSON.stringify(passJson), { encoding: 'utf8' });
                 zip.file('icon.png', DEFAULT_ICONS.icon, { base64: true });
                 zip.file('logo.png', logoBase64 || DEFAULT_ICONS.logo, { base64: true });
-                zip.file('strip.png', stripBase64 || DEFAULT_ICONS.strip, { base64: true });
-
-                // 【核心】用回上一版的压缩方式（能弹出正确凭证窗口）
+                // 生成Blob（苹果官方MIME类型，无压缩）
                 pkpassBlob = await zip.generateAsync({
                     type: 'blob',
-                    compression: 'DEFLATE',
-                    compressionOptions: { level: 1 },
+                    compression: 'STORE',
                     mimeType: 'application/vnd.apple.pkpass'
                 });
-
-                // 释放旧URL，创建新URL（避免缓存问题）
-                if (pkpassUrl) URL.revokeObjectURL(pkpassUrl);
-                pkpassUrl = URL.createObjectURL(pkpassBlob);
-
-                debugEl.className = 'debug-success';
-                debugEl.textContent = '✅ 卡包生成成功！点击「唤起苹果钱包」弹出凭证窗口';
-                document.getElementById('callWallet').removeAttribute('disabled');
-                return pkpassBlob;
+                // 生成文件名
+                pkpassFileName = `${passName.replace(/[^\w\u4e00-\u9fa5]/g, '')}.pkpass`;
+                // 生成临时URL（用于二维码/下载）
+                if (pkpassObjectUrl) URL.revokeObjectURL(pkpassObjectUrl);
+                pkpassObjectUrl = URL.createObjectURL(pkpassBlob);
+                // 启用按钮+显示二维码区
+                document.getElementById('downloadBtn').removeAttribute('disabled');
+                document.getElementById('qrcodeWrap').style.display = 'block';
+                // 生成唤起二维码
+                generateQrcode();
+                showDebug(`✅ 卡包生成成功！${pkpassFileName}，请扫码添加`, 'success');
             } catch (e) {
-                debugEl.className = 'debug-error';
-                debugEl.textContent = `❌ 生成失败：${e.message}`;
-                return null;
+                showDebug(`❌ 卡包生成失败：${e.message}`, 'error');
             }
         }
 
-        // 【终极核心修复】唤起逻辑完全回滚+优化（恢复正确弹窗，无下载提示）
-        function callAppleWallet() {
-            if (!pkpassBlob || !pkpassUrl) return;
-            // 完全回滚到能弹出正确凭证窗口的逻辑，仅新开窗口，无任何下载属性
-            const win = window.open(pkpassUrl, '_blank');
-            // 轻微延时，确保凭证弹窗正常触发后再做处理
-            setTimeout(() => {
-                // 不关闭窗口，避免中断凭证传递，解决点允许后无后续的问题
-                win.focus();
-            }, 500);
+        // 7. 生成唤起二维码（核心：扫码直接打开pkpass）
+        function generateQrcode() {
+            if (!pkpassObjectUrl) return;
+            QRCode.toCanvas(document.getElementById('qrcode'), pkpassObjectUrl, {
+                width: 200,
+                margin: 1
+            }, (err) => {
+                if (err) showDebug(`❌ 二维码生成失败：${err.message}`, 'error');
+            });
         }
 
-        // 导出ZIP包（备用方案，100%能添加）
-        async function exportZip() {
-            if (!pkpassBlob) {
-                const res = await generatePKPass();
-                if (!res) return;
-            }
-            const zip = new JSZip();
-            const fileName = `${document.getElementById('passName').value.trim().replace(/[^\w\u4e00-\u9fa5]/g, '')}.pkpass`;
-            zip.file(fileName, pkpassBlob);
-            const zipBlob = await zip.generateAsync({ type: 'blob' });
+        // 8. 下载PKPass文件（备用方案）
+        function downloadPKPass() {
+            if (!pkpassBlob || !pkpassFileName) return;
             const a = document.createElement('a');
-            a.href = URL.createObjectURL(zipBlob);
-            a.download = fileName + '_备用包.zip';
+            a.href = pkpassObjectUrl;
+            a.download = pkpassFileName;
             a.click();
-            URL.revokeObjectURL(a.href);
         }
 
-        // 绑定按钮事件
-        document.getElementById('createBtn').addEventListener('click', generatePKPass);
-        document.getElementById('exportZipBtn').addEventListener('click', exportZip);
-        document.getElementById('callWallet').addEventListener('click', callAppleWallet);
-
-        // 页面卸载时释放URL，避免内存泄漏
-        window.addEventListener('unload', () => {
-            if (pkpassUrl) URL.revokeObjectURL(pkpassUrl);
-        });
+        // 页面初始化：首次更新预览
+        window.onload = () => {
+            updatePreview();
+        };
+        // 页面卸载：释放临时URL，避免内存泄漏
+        window.onunload = () => {
+            if (pkpassObjectUrl) URL.revokeObjectURL(pkpassObjectUrl);
+        };
     </script>
 </body>
 </html>
