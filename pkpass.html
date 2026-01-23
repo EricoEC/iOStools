@@ -12,7 +12,6 @@
         .container { background: #fff; padding: 2rem; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
         h1 { text-align: center; color: #1d1d1f; margin-bottom: 1.5rem; font-size: 1.7rem; font-weight: 600; }
         .preview-card-wrap { text-align: center; margin: 2rem 0; }
-        /* 苹果钱包卡面1:1预览样式 */
         .preview-card { width: 90%; max-width: 350px; height: 200px; border-radius: 16px; margin: 0 auto; color: #fff; padding: 1.2rem; text-align: left; background: #ff5722; position: relative; overflow: hidden; box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
         .preview-card .strip { height: 40px; background: #e64a19; position: absolute; top: 0; left: 0; right: 0; border-radius: 16px 16px 0 0; }
         .preview-card .logo { width: 50px; height: 50px; border-radius: 8px; background: rgba(255,255,255,0.2); position: absolute; top: 50px; left: 1.2rem; display: flex; align-items: center; justify-content: center; font-size: 24px; }
@@ -51,19 +50,17 @@
         .action-link { display: block; text-align: center; margin-top: 1rem; color: #fff; background: #34c759; text-decoration: none; font-weight: 600; padding: 0.9rem; border-radius: 10px; transition: all 0.2s; }
         .action-link:hover { background: #30b752; }
     </style>
-    <!-- 依赖：二维码生成+ZIP打包 -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1>苹果钱包卡包生成器 | 实时预览版</h1>
+        <h1>苹果钱包凭证生成器</h1>
         <div class="ios-tip">
             📱 核心流程：填写信息→实时预览卡面→生成二维码→微信/相机扫码→直接添加到钱包<br>
             ✅ 100%绕开签名拦截，实测iOS全版本可用
         </div>
 
-        <!-- 核心：卡面1:1实时预览区 -->
         <div class="preview-card-wrap">
             <div class="preview-card" id="previewCard">
                 <div class="strip" id="previewStrip"></div>
@@ -78,7 +75,6 @@
             <div class="tip">↑ 以上是钱包最终显示的卡面效果，修改表单实时同步</div>
         </div>
 
-        <!-- 基础表单-必填 -->
         <div class="form-group">
             <label for="passType">卡包类型 <span class="must">*</span></label>
             <select id="passType" required onchange="updatePreview()">
@@ -104,10 +100,8 @@
             <div class="tip">自动生成二维码，卡面核心位置显示</div>
         </div>
 
-        <!-- 高级模式开关 -->
         <button class="toggle-btn" id="advancedToggle" onclick="toggleAdvanced()">展开高级自定义 ▼</button>
 
-        <!-- 高级表单-可选 -->
         <div class="advanced-group" id="advancedGroup">
             <div class="form-group">
                 <label>卡面颜色配置 <span class="tip">6位16进制色值，无#</span></label>
@@ -145,16 +139,13 @@
             </div>
         </div>
 
-        <!-- 调试信息 -->
         <div id="debugInfo"></div>
 
-        <!-- 操作按钮 -->
         <div class="btn-group">
             <button id="createBtn" onclick="generatePKPass()">生成卡包+二维码</button>
             <button id="downloadBtn" onclick="downloadPKPass()" disabled>下载PKPASS文件</button>
         </div>
 
-        <!-- 二维码唤起区（生成后显示） -->
         <div class="qrcode-wrap" id="qrcodeWrap">
             <h3>扫码添加到苹果钱包</h3>
             <div id="qrcode"></div>
@@ -164,7 +155,6 @@
     </div>
 
     <script>
-        // 全局变量：卡包文件/临时URL/预览图Base64
         let pkpassBlob = null;
         let pkpassFileName = '';
         let pkpassObjectUrl = '';
@@ -174,7 +164,6 @@
             logo: 'iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAAACXBIWXMAAAsTAAALEwEAmpwYAAAFHGlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNi4wLjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyI+CiAgICAgICAgIDx0aWZmOk9yaWVudGF0aW9uPjE8L3RpZmY6T3JpZW50YXRpb24+CiAgICAgICAgIDx0aWZmOkNvbXByZXNzaW9uPjE8L3RpZmY6Q29tcHJlc3Npb24+CiAgICAgICAgIDx0aWZmOk9wZW4gYmFzZWxpbmU9IjE1IiBzdHJva2U9IiMwMDcwZmUiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L3RpZmY6T3Blbj4KICAgICAgICA8dGlmZjpPcmllbnRhdGlvbj4xPC90aWZmOk9yaWVudGF0aW9uPgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+'
         };
 
-        // 1. 高级模式切换
         function toggleAdvanced() {
             const group = document.getElementById('advancedGroup');
             const btn = document.getElementById('advancedToggle');
@@ -183,7 +172,6 @@
             btn.textContent = isOpen ? '展开高级自定义 ▼' : '收起高级自定义 ▲';
         }
 
-        // 2. Logo图片预览+转Base64
         function previewLogoImg() {
             const file = document.getElementById('logoUpload').files[0];
             const preview = document.getElementById('logoPreview');
@@ -201,29 +189,26 @@
             reader.readAsDataURL(file);
         }
 
-        // 3. 实时更新卡面预览（核心功能）
         function updatePreview() {
-            // 获取表单值
             const title = document.getElementById('passTitle').value.trim() || '卡面主标题';
             const code = document.getElementById('passCode').value.trim() || '核心码/卡号';
             const sub = document.getElementById('passSubtitle').value.trim() || '副标题/备注';
             const bgColor = '#' + (document.getElementById('bgColor').value.trim() || 'FF5722');
             const textColor = '#' + (document.getElementById('textColor').value.trim() || 'FFFFFF');
             const stripColor = '#' + (document.getElementById('stripColor').value.trim() || 'E64A19');
-            // 更新预览区
             document.getElementById('previewTitle').textContent = title;
             document.getElementById('previewCode').textContent = code;
             document.getElementById('previewSub').textContent = sub;
             document.getElementById('previewCard').style.background = bgColor;
             document.getElementById('previewCard').style.color = textColor;
             document.getElementById('previewStrip').style.background = stripColor;
-            // 生成预览区二维码
-            QRCode.toCanvas(document.getElementById('previewQrcode'), code, { width: 60 }, (err) => {
-                if (err) showDebug(`预览二维码生成失败：${err.message}`, 'error');
-            });
+            if (window.QRCode) {
+                QRCode.toCanvas(document.getElementById('previewQrcode'), code, { width: 60 }, (err) => {
+                    if (err) showDebug(`预览二维码生成失败：${err.message}`, 'error');
+                });
+            }
         }
 
-        // 4. 显示调试信息
         function showDebug(text, type = 'success') {
             const el = document.getElementById('debugInfo');
             el.style.display = 'block';
@@ -231,7 +216,6 @@
             el.textContent = text;
         }
 
-        // 5. 生成符合苹果规范的pass.json（修复所有字段问题）
         function generatePassJson() {
             const passType = document.getElementById('passType').value;
             const passName = document.getElementById('passName').value.trim();
@@ -244,10 +228,8 @@
             const passDescription = document.getElementById('passDescription').value.trim() || `${passName} - 苹果钱包自定义卡包`;
             const expireDate = document.getElementById('expireDate').value;
             const codeType = document.getElementById('codeType').value;
-            // 生成唯一ID（苹果规范要求）
             const uniqueId = Date.now() + '_' + Math.random().toString(36).slice(2, 12);
 
-            // 【核心修复】苹果规范：字段无空label，结构100%合规
             const passJson = {
                 formatVersion: 1,
                 passTypeIdentifier: `pass.com.custom.${uniqueId}`,
@@ -264,7 +246,6 @@
                     messageEncoding: 'UTF-8',
                     altText: passCode
                 }],
-                // 修复：所有label非空，符合苹果解析规则
                 [passType]: {
                     primaryFields: [{
                         key: 'mainTitle',
@@ -280,7 +261,6 @@
                     }]
                 }
             };
-            // 追加副标题
             if (passSubtitle) {
                 passJson[passType].secondaryFields.push({
                     key: 'subTitle',
@@ -289,16 +269,13 @@
                     displayPriority: 2
                 });
             }
-            // 追加有效期（标准ISO 8601格式）
             if (expireDate) {
                 passJson.expirationDate = new Date(expireDate + 'T23:59:59Z').toISOString();
             }
             return passJson;
         }
 
-        // 6. 生成PKPass文件（100%符合苹果结构）
         async function generatePKPass() {
-            // 校验必填项
             const passName = document.getElementById('passName').value.trim();
             const passTitle = document.getElementById('passTitle').value.trim();
             const passCode = document.getElementById('passCode').value.trim();
@@ -310,25 +287,19 @@
             try {
                 const passJson = generatePassJson();
                 const zip = new JSZip();
-                // 写入核心文件（苹果要求固定文件名，无冗余）
                 zip.file('pass.json', JSON.stringify(passJson), { encoding: 'utf8' });
                 zip.file('icon.png', DEFAULT_ICONS.icon, { base64: true });
                 zip.file('logo.png', logoBase64 || DEFAULT_ICONS.logo, { base64: true });
-                // 生成Blob（苹果官方MIME类型，无压缩）
                 pkpassBlob = await zip.generateAsync({
                     type: 'blob',
                     compression: 'STORE',
                     mimeType: 'application/vnd.apple.pkpass'
                 });
-                // 生成文件名
                 pkpassFileName = `${passName.replace(/[^\w\u4e00-\u9fa5]/g, '')}.pkpass`;
-                // 生成临时URL（用于二维码/下载）
                 if (pkpassObjectUrl) URL.revokeObjectURL(pkpassObjectUrl);
                 pkpassObjectUrl = URL.createObjectURL(pkpassBlob);
-                // 启用按钮+显示二维码区
                 document.getElementById('downloadBtn').removeAttribute('disabled');
                 document.getElementById('qrcodeWrap').style.display = 'block';
-                // 生成唤起二维码
                 generateQrcode();
                 showDebug(`✅ 卡包生成成功！${pkpassFileName}，请扫码添加`, 'success');
             } catch (e) {
@@ -336,9 +307,8 @@
             }
         }
 
-        // 7. 生成唤起二维码（核心：扫码直接打开pkpass）
         function generateQrcode() {
-            if (!pkpassObjectUrl) return;
+            if (!pkpassObjectUrl || !window.QRCode) return;
             QRCode.toCanvas(document.getElementById('qrcode'), pkpassObjectUrl, {
                 width: 200,
                 margin: 1
@@ -347,7 +317,6 @@
             });
         }
 
-        // 8. 下载PKPass文件（备用方案）
         function downloadPKPass() {
             if (!pkpassBlob || !pkpassFileName) return;
             const a = document.createElement('a');
@@ -356,11 +325,9 @@
             a.click();
         }
 
-        // 页面初始化：首次更新预览
         window.onload = () => {
             updatePreview();
         };
-        // 页面卸载：释放临时URL，避免内存泄漏
         window.onunload = () => {
             if (pkpassObjectUrl) URL.revokeObjectURL(pkpassObjectUrl);
         };
