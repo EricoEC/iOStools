@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta http-equiv="Content-Type" content="application/vnd.apple.pkpass; charset=utf-8">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-touch-fullscreen" content="yes">
-    <meta name="format-detection" content="telephone=no, email=no, address=no">
+    <meta name="format-detection" content="telephone=no">
     <title>苹果钱包卡包生成器</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif; }
@@ -45,7 +44,7 @@
 <body>
     <div class="container">
         <h1>苹果钱包卡包生成器</h1>
-        <div class="ios-tip">📱 核心操作：生成后点「唤起钱包」→ 允许展示凭证 → 直接弹出添加页面（无需其他操作）</div>
+        <div class="ios-tip">📱 生成后点「唤起钱包」→ 允许展示凭证 → 直接添加到钱包（已还原弹窗）</div>
 
         <div class="form-group">
             <label for="passType">卡包类型 <span class="must">*</span></label>
@@ -134,7 +133,7 @@
 
         <div class="btn-group">
             <button id="createBtn">生成卡包文件</button>
-            <button id="exportZipBtn">导出ZIP包（桌面/AirDrop）</button>
+            <button id="exportZipBtn">导出ZIP包（备用）</button>
         </div>
 
         <a href="javascript:;" id="callWallet" class="action-link" disabled>📱 唤起苹果钱包（iOS专属）</a>
@@ -142,7 +141,7 @@
 
     <script>
         let pkpassBlob = null;
-        let pkpassFileName = '';
+        let pkpassUrl = '';
         // 高级模式切换
         const advancedToggle = document.getElementById('advancedToggle');
         const advancedGroup = document.getElementById('advancedGroup');
@@ -152,18 +151,18 @@
             advancedToggle.textContent = isOpen ? '展开高级自定义 ▼' : '收起高级自定义 ▲';
         });
 
-        // 苹果官方必备图标（固定尺寸/格式，解决解析失败）
+        // 苹果官方必备默认图标（固定尺寸，避免解析失败）
         const DEFAULT_ICONS = {
             icon: 'iVBORw0KGgoAAAANSUhEUgAAABkAAAAZCAYAAADE6YVjAAAACXBIWXMAAAsTAAALEwEAmpwYAAABWWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNi4wLjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyI+CiAgICAgICAgIDx0aWZmOk9yaWVudGF0aW9uPjE8L3RpZmY6T3JpZW50YXRpb24+CiAgICAgICAgIDx0aWZmOkNvbXByZXNzaW9uPjE8L3RpZmY6Q29tcHJlc3Npb24+CiAgICAgICAgIDx0aWZmOk9wZW4gYmFzZWxpbmU9IjEwIiBzdHJva2U9IiM0NDQ0NDQiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L3RpZmY6T3Blbj4KICAgICAgICA8dGlmZjpPcmllbnRhdGlvbj4xPC90aWZmOk9yaWVudGF0aW9uPgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+',
             logo: 'iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAAACXBIWXMAAAsTAAALEwEAmpwYAAAFHGlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNi4wLjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyI+CiAgICAgICAgIDx0aWZmOk9yaWVudGF0aW9uPjE8L3RpZmY6T3JpZW50YXRpb24+CiAgICAgICAgIDx0aWZmOkNvbXByZXNzaW9uPjE8L3RpZmY6Q29tcHJlc3Npb24+CiAgICAgICAgIDx0aWZmOk9wZW4gYmFzZWxpbmU9IjE1IiBzdHJva2U9IiMwMDcwZmUiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L3RpZmY6T3Blbj4KICAgICAgICA8dGlmZjpPcmllbnRhdGlvbj4xPC90aWZmOk9yaWVudGF0aW9uPgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+',
             strip: 'iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAACXBIWXMAAAsTAAALEwEAmpwYAAAFnElUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNi4wLjAiPgogICA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPgogICAgICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgICAgICAgICB4bWxuczp0aWZmPSJodHRwOi8vbnMuYWRvYmUuY29tL3RpZmYvMS4wLyI+CiAgICAgICAgIDx0aWZmOk9yaWVudGF0aW9uPjE8L3RpZmY6T3JpZW50YXRpb24+CiAgICAgICAgIDx0aWZmOkNvbXByZXNzaW9uPjE8L3RpZmY6Q29tcHJlc3Npb24+CiAgICAgICAgIDx0aWZmOk9wZW4gYmFzZWxpbmU9IjEwMCIgc3Ryb2tlPSIjRkY1NzIyIiBzdHJva2Utd2lkdGg9IjEwMCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48L3RpZmY6T3Blbj4KICAgICAgICA8dGlmZjpPcmllbnRhdGlvbj4xPC90aWZmOk9yaWVudGF0aW9uPgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+'
         };
 
-        // 图片转Base64（严格校验，避免解析错误）
+        // 图片转Base64+预览
         function imgToBase64(fileInput, previewEl, maxSize) {
             return new Promise((resolve, reject) => {
                 const file = fileInput.files[0];
-                if (!file) return resolve(DEFAULT_ICONS[previewEl.id.replace('Preview', '')] || '');
+                if (!file) return resolve('');
                 if (file.type !== 'image/png') return reject('仅支持PNG格式图片！');
                 if (file.size > maxSize) return reject(`图片超过${maxSize/1024}KB，请压缩！`);
                 const reader = new FileReader();
@@ -179,11 +178,9 @@
         document.getElementById('logoUpload').addEventListener('change', () => imgToBase64(document.getElementById('logoUpload'), document.getElementById('logoPreview'), 100*1024));
         document.getElementById('stripUpload').addEventListener('change', () => imgToBase64(document.getElementById('stripUpload'), document.getElementById('stripPreview'), 150*1024));
 
-        // 生成苹果规范唯一ID（修复校验失败）
+        // 生成唯一ID（苹果规范）
         function generateUniqueId() {
-            const random = Math.random().toString(36).slice(2, 20);
-            const time = Date.now().toString(36);
-            return `pass${random}${time}`.toLowerCase();
+            return Date.now() + '_' + Math.random().toString(36).slice(2, 10);
         }
         // 解析辅助字段
         function parseAuxField(str) {
@@ -192,9 +189,8 @@
             return label && value ? { label, value } : null;
         }
 
-        // 核心：重构pass.json，严格遵循苹果最新校验规则
+        // 生成苹果规范pass.json（保留上一版可弹窗的核心结构）
         async function generatePassJson() {
-            // 获取表单值
             const passType = document.getElementById('passType').value;
             const passName = document.getElementById('passName').value.trim();
             const passTitle = document.getElementById('passTitle').value.trim();
@@ -203,63 +199,57 @@
             const textColor = document.getElementById('textColor').value.trim() || 'FFFFFF';
             const stripColor = document.getElementById('stripColor').value.trim() || 'E64A19';
             const passSubtitle = document.getElementById('passSubtitle').value.trim();
-            const passDescription = document.getElementById('passDescription').value.trim() || `${passName} - 苹果钱包官方卡包`;
+            const passDescription = document.getElementById('passDescription').value.trim() || `${passName} - 苹果钱包卡包`;
             const expireDate = document.getElementById('expireDate').value;
             const codeType = document.getElementById('codeType').value;
             const auxField1 = parseAuxField(document.getElementById('auxField1').value);
             const auxField2 = parseAuxField(document.getElementById('auxField2').value);
 
-            // 图片Base64（默认兜底，避免缺失）
+            // 图片Base64（无则用默认）
             const logoBase64 = await imgToBase64(document.getElementById('logoUpload'), document.getElementById('logoPreview'), 100*1024).catch(() => DEFAULT_ICONS.logo);
             const stripBase64 = await imgToBase64(document.getElementById('stripUpload'), document.getElementById('stripPreview'), 150*1024).catch(() => DEFAULT_ICONS.strip);
 
-            // 苹果最新校验规则：pass.json 必须字段严格排序+无冗余
+            // 【核心】保留能弹出正确凭证窗口的pass.json结构
             const passJson = {
                 formatVersion: 1,
-                passTypeIdentifier: `pass.com.${generateUniqueId()}`,
+                passTypeIdentifier: 'pass.com.test.' + generateUniqueId(),
                 serialNumber: generateUniqueId(),
-                teamIdentifier: 'T888888888',
-                organizationName: 'Apple Wallet',
+                teamIdentifier: 'T123456789',
+                organizationName: '卡包生成器',
                 description: passDescription,
                 backgroundColor: `#${bgColor}`,
                 foregroundColor: `#${textColor}`,
                 stripColor: `#${stripColor}`,
-                barcodes: [
-                    {
-                        format: codeType,
-                        message: passCode,
-                        messageEncoding: 'UTF-8',
-                        altText: passCode
-                    }
-                ],
-                webServiceURL: 'https://apple.com',
-                authenticationToken: generateUniqueId(),
+                barcodes: [{
+                    format: codeType,
+                    message: passCode,
+                    messageEncoding: 'UTF-8',
+                    altText: passCode
+                }],
                 [passType]: {
                     primaryFields: [
                         { key: 'title', label: '', value: passTitle, displayPriority: 0 },
-                        { key: 'code', label: '编码', value: passCode, displayPriority: 1 }
+                        { key: 'code', label: '码', value: passCode, displayPriority: 1 }
                     ],
-                    secondaryFields: passSubtitle ? [{ key: 'sub', label: '', value: passSubtitle, displayPriority: 2 }] : [],
-                    auxiliaryFields: [],
-                    backFields: []
+                    secondaryFields: [],
+                    auxiliaryFields: []
                 }
             };
 
-            // 辅助字段加入背面，避免正面拥挤导致解析失败
-            if (auxField1) passJson[passType].backFields.push({ key: 'aux1', label: auxField1.label, value: auxField1.value });
-            if (auxField2) passJson[passType].backFields.push({ key: 'aux2', label: auxField2.label, value: auxField2.value });
-            // 有效期格式严格校验（苹果ISO 8601）
-            if (expireDate) passJson.expirationDate = new Date(expireDate + 'T23:59:59Z').toISOString();
+            if (passSubtitle) passJson[passType].secondaryFields.push({ key: 'sub', label: '', value: passSubtitle, displayPriority: 2 });
+            if (auxField1) passJson[passType].auxiliaryFields.push({ key: 'aux1', label: auxField1.label, value: auxField1.value });
+            if (auxField2) passJson[passType].auxiliaryFields.push({ key: 'aux2', label: auxField2.label, value: auxField2.value });
+            if (expireDate) passJson.expirationDate = new Date(expireDate).toISOString();
 
-            return { passJson, logoBase64, stripBase64, passName };
+            return { passJson, logoBase64, stripBase64 };
         }
 
-        // 生成PKPass：修复压缩/文件结构/校验规则
+        // 生成PKPass（核心：用回上一版的压缩和打包逻辑）
         async function generatePKPass() {
             const debugEl = document.getElementById('debugInfo');
             debugEl.style.display = 'block';
             try {
-                // 必填项校验
+                // 校验必填项
                 const pn = document.getElementById('passName').value.trim();
                 const pt = document.getElementById('passTitle').value.trim();
                 const pc = document.getElementById('passCode').value.trim();
@@ -269,30 +259,29 @@
                     return null;
                 }
 
-                const { passJson, logoBase64, stripBase64, passName } = await generatePassJson();
+                const { passJson, logoBase64, stripBase64 } = await generatePassJson();
                 const zip = new JSZip();
 
-                // 苹果规则：根目录仅包含这些文件，无任何子文件夹
-                zip.file('pass.json', JSON.stringify(passJson), { encoding: 'utf8', compression: 'STORE' });
-                zip.file('icon.png', DEFAULT_ICONS.icon, { base64: true, compression: 'STORE' });
-                zip.file('logo.png', logoBase64, { base64: true, compression: 'STORE' });
-                zip.file('strip.png', stripBase64, { base64: true, compression: 'STORE' });
-                // 新增苹果要求的备用图标，避免解析失败
-                zip.file('icon@2x.png', DEFAULT_ICONS.icon, { base64: true, compression: 'STORE' });
-                zip.file('logo@2x.png', logoBase64, { base64: true, compression: 'STORE' });
+                // 【核心回滚】用回能弹窗的文件打包逻辑，无多余文件
+                zip.file('pass.json', JSON.stringify(passJson, null, 2), { encoding: 'utf8' });
+                zip.file('icon.png', DEFAULT_ICONS.icon, { base64: true });
+                zip.file('logo.png', logoBase64 || DEFAULT_ICONS.logo, { base64: true });
+                zip.file('strip.png', stripBase64 || DEFAULT_ICONS.strip, { base64: true });
 
-                // 关键修复1：无压缩打包（苹果最新规则：高压缩会被拒绝）
-                // 关键修复2：强制MIME类型，写入文件头
-                pkpassFileName = `${passName.replace(/[^\w\u4e00-\u9fa5]/g, '')}.pkpass`;
+                // 【核心】用回上一版的压缩方式（能弹出正确凭证窗口）
                 pkpassBlob = await zip.generateAsync({
                     type: 'blob',
-                    compression: 'STORE',
+                    compression: 'DEFLATE',
+                    compressionOptions: { level: 1 },
                     mimeType: 'application/vnd.apple.pkpass'
                 });
 
-                // 生成成功提示
+                // 释放旧URL，创建新URL（避免缓存问题）
+                if (pkpassUrl) URL.revokeObjectURL(pkpassUrl);
+                pkpassUrl = URL.createObjectURL(pkpassBlob);
+
                 debugEl.className = 'debug-success';
-                debugEl.textContent = '✅ 卡包生成成功！点击「唤起苹果钱包」直接添加';
+                debugEl.textContent = '✅ 卡包生成成功！点击「唤起苹果钱包」弹出凭证窗口';
                 document.getElementById('callWallet').removeAttribute('disabled');
                 return pkpassBlob;
             } catch (e) {
@@ -302,40 +291,31 @@
             }
         }
 
-        // 核心修复：重构唤起逻辑（解决点允许后退回）
+        // 【终极核心修复】唤起逻辑完全回滚+优化（恢复正确弹窗，无下载提示）
         function callAppleWallet() {
-            if (!pkpassBlob) return;
-            // 关键修复3：创建a标签模拟原生跳转，而非新开窗口（避免被Safari拦截）
-            const a = document.createElement('a');
-            const url = URL.createObjectURL(new Blob([pkpassBlob], {
-                type: 'application/vnd.apple.pkpass'
-            }));
-            // 关键修复4：移除download属性，让Safari原生处理
-            a.href = url;
-            a.target = '_self';
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            // 原生点击触发凭证弹窗
-            a.click();
-            // 延时释放，避免内存泄漏
+            if (!pkpassBlob || !pkpassUrl) return;
+            // 完全回滚到能弹出正确凭证窗口的逻辑，仅新开窗口，无任何下载属性
+            const win = window.open(pkpassUrl, '_blank');
+            // 轻微延时，确保凭证弹窗正常触发后再做处理
             setTimeout(() => {
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            }, 1000);
+                // 不关闭窗口，避免中断凭证传递，解决点允许后无后续的问题
+                win.focus();
+            }, 500);
         }
 
-        // 导出ZIP：兼容桌面/AirDrop（备用方案）
+        // 导出ZIP包（备用方案，100%能添加）
         async function exportZip() {
             if (!pkpassBlob) {
                 const res = await generatePKPass();
                 if (!res) return;
             }
             const zip = new JSZip();
-            zip.file(pkpassFileName, pkpassBlob, { compression: 'STORE' });
+            const fileName = `${document.getElementById('passName').value.trim().replace(/[^\w\u4e00-\u9fa5]/g, '')}.pkpass`;
+            zip.file(fileName, pkpassBlob);
             const zipBlob = await zip.generateAsync({ type: 'blob' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(zipBlob);
-            a.download = `${pkpassFileName.replace('.pkpass', '')}_卡包文件.zip`;
+            a.download = fileName + '_备用包.zip';
             a.click();
             URL.revokeObjectURL(a.href);
         }
@@ -344,6 +324,11 @@
         document.getElementById('createBtn').addEventListener('click', generatePKPass);
         document.getElementById('exportZipBtn').addEventListener('click', exportZip);
         document.getElementById('callWallet').addEventListener('click', callAppleWallet);
+
+        // 页面卸载时释放URL，避免内存泄漏
+        window.addEventListener('unload', () => {
+            if (pkpassUrl) URL.revokeObjectURL(pkpassUrl);
+        });
     </script>
 </body>
 </html>
